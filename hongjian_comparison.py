@@ -194,14 +194,23 @@ def save_latex_tables(df_results, filename="neurips_simulation_table.tex"):
     print(f"\n[+] Success! A single unified LaTeX table has been saved to '{filename}'")
 
 
+
 def save_plots(df_results, filename="neurips_simulation_plot.png"):
     scenarios = df_results["Scenario"].unique()
     
-    # 1x3 Grid setup. Width=15, Height=4 is perfect for a full-width NeurIPS figure.
+    # 1x3 Grid setup. 
     fig, axes = plt.subplots(1, 3, figsize=(10, 3))
     
     colors = {"MEB 1": "#1f77b4", "MEB 2": "#ff7f0e", "Draft": "#2ca02c", "Ambient Oracle": "#d62728"}
     markers = {"MEB 1": "o", "MEB 2": "s", "Draft": "^"}
+
+    # --- Helper to format numbers as LaTeX scientific notation ---
+    def format_sci(n):
+        exponent = int(np.log10(n))
+        coeff = int(n / (10**exponent))
+        if coeff == 1:
+            return f"$10^{{{exponent}}}$"
+        return f"${coeff} \\times 10^{{{exponent}}}$"
 
     for i, scenario in enumerate(scenarios):
         ax = axes[i]
@@ -222,8 +231,8 @@ def save_plots(df_results, filename="neurips_simulation_plot.png"):
         ax.fill_between(n_vals, group["Draft Lower"], group["Draft Upper"], color=colors["Draft"], alpha=0.25)
         
         # --- Plot Oracles ---
-        ax.plot(n_vals, group["Ambient Oracle / Intrinsic"], color=colors["Ambient Oracle"], linestyle=":", linewidth=2.5, label="Ambient Oracle (Tropp)")
-        ax.axhline(y=1.0, color="black", linestyle="--", linewidth=1.5, label="Intrinsic Oracle (Ours)")
+        ax.plot(n_vals, group["Ambient Oracle / Intrinsic"], color=colors["Ambient Oracle"], linestyle=":", linewidth=2.5, label="Ambient Oracle")
+        ax.axhline(y=1.0, color="black", linestyle="--", linewidth=1.5, label="Intrinsic Oracle")
         
         # --- Formatting ---
         ax.set_xscale("log")
@@ -231,19 +240,17 @@ def save_plots(df_results, filename="neurips_simulation_plot.png"):
         ax.set_title(clean_title, fontweight="bold")
         ax.set_xlabel("Sample Size (n)")
         
-        # Only add the Y-label to the first plot to keep things clean
         if i == 0:
             ax.set_ylabel("Ratio to Intrinsic Oracle")
             
-        # Explicitly enforce X-ticks at the exact sample sizes considered
+        # --- Updated X-Ticks Logic ---
         ax.set_xticks(n_vals)
-        ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter()) # Disables scientific notation (10^4)
-        ax.set_xticklabels([f"{int(n):,}" for n in n_vals], rotation=45) # Formats nicely (e.g. 10,000)
-        ax.minorticks_off() # Prevents log-scale minor ticks from cluttering the custom ticks
+        # We drop the ScalarFormatter and map our custom LaTeX function
+        ax.set_xticklabels([format_sci(n) for n in n_vals], rotation=0) 
+        ax.minorticks_off() 
         
         ax.grid(True, which="major", linestyle=":", alpha=0.7)
         
-        # Legend placement
         if i == 0:
             ax.legend(loc="best", framealpha=0.9, fontsize="small")
 
@@ -255,14 +262,11 @@ def save_plots(df_results, filename="neurips_simulation_plot.png"):
 
 
 # Run the simulation 
-n_values = [1000, 10000, 100000, 1000000, 10000000]
-n_values = [10000, 100000, 1000000, 10000000]
-n_values = [10000, 50000, 100000, 500000]
 n_values = [10000, 30000, 100000, 300000, 1000000]
 d = 3
-trials = 5
+trials = 50
 alpha = 0.05
-df_results = simulate_inequalities(n_values, d = d, alpha = alpha, trials = trials, run_meb2=False)
+df_results = simulate_inequalities(n_values, d = d, alpha = alpha, trials = trials, run_meb2=True)
 
 # Print results
 for scenario, group in df_results.groupby("Scenario"):
