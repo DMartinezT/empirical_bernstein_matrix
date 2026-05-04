@@ -1,0 +1,39 @@
+% =========================================================
+% Unified LaTeX Table for Matrix Empirical Bernstein Simulations
+% Requires: \usepackage{booktabs}, \usepackage{multirow}, \usepackage{graphicx}
+% =========================================================
+
+\begin{table}[htbp]
+\centering
+\caption{Ratio of confidence radii across MEB inequalities under various spectral decays. Lower is better.}
+\label{tab:meb_simulations_all}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{llccc}
+\toprule
+ &  & Oracle (D_tb) & MEB 1 / Oracle & Draft / Oracle \\
+Scenario & n &  &  &  \\
+\midrule
+\multirow[t]{4}{*}{Completely Anisotropic} & 10000 & 0.008 & 1.203 & 1.123 \\
+ & 100000 & 0.003 & 1.072 & 0.978 \\
+ & 1000000 & 0.001 & 1.024 & 0.955 \\
+ & 10000000 & 0.000 & 1.008 & 0.951 \\
+\cline{1-5}
+\multirow[t]{4}{*}{Completely Isotropic} & 10000 & 0.008 & 1.209 & 1.258 \\
+ & 100000 & 0.003 & 1.073 & 1.116 \\
+ & 1000000 & 0.001 & 1.025 & 1.091 \\
+ & 10000000 & 0.000 & 1.008 & 1.084 \\
+\cline{1-5}
+\multirow[t]{4}{*}{Polynomial Decay} & 10000 & 0.008 & 1.209 & 1.135 \\
+ & 100000 & 0.003 & 1.070 & 0.985 \\
+ & 1000000 & 0.001 & 1.024 & 0.964 \\
+ & 10000000 & 0.000 & 1.008 & 0.960 \\
+\cline{1-5}
+\multirow[t]{4}{*}{Exponential Decay} & 10000 & 0.003 & 1.548 & 1.834 \\
+ & 100000 & 0.001 & 1.191 & 1.112 \\
+ & 1000000 & 0.000 & 1.065 & 0.986 \\
+ & 10000000 & 0.000 & 1.022 & 0.970 \\
+\cline{1-5}
+\bottomrule
+\end{tabular}
+}
+\end{table}
