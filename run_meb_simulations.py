@@ -149,7 +149,6 @@ def simulate_inequalities(n_values, d=100, alpha=0.05, trials=50, run_meb2=True)
     return pd.DataFrame(results)
 
 
-
 def save_latex_tables(df_results, filename="neurips_simulation_table.tex"):
     """
     Converts the results DataFrame into a single, unified publication-ready 
@@ -192,7 +191,6 @@ def save_latex_tables(df_results, filename="neurips_simulation_table.tex"):
         f.write(latex_wrapper)
             
     print(f"\n[+] Success! A single unified LaTeX table has been saved to '{filename}'")
-
 
 
 def save_plots(df_results, filename="neurips_simulation_plot.png"):
@@ -275,5 +273,5 @@ for scenario, group in df_results.groupby("Scenario"):
     print(group[display_cols].to_string(index=False))
 
 # Save the LaTeX tables to file
-save_latex_tables(df_results, filename="neurips_simulation_tables.tex")
+#save_latex_tables(df_results, filename="neurips_simulation_tables.tex")
 save_plots(df_results, filename="neurips_simulation_plot.png")

@@ -3,39 +3,41 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 from tqdm import tqdm
-from scipy.sparse.linalg import eigs  # <-- The key to making this fast!
+from scipy.sparse.linalg import eigs
 
 def rbf_kernel(X, Y=None, gamma=0.1):
+    """Gaussian RBF Kernel"""
     if Y is None: Y = X
     sq_dists = np.sum(X**2, axis=1).reshape(-1, 1) + np.sum(Y**2, axis=1) - 2 * np.dot(X, Y.T)
     return np.exp(-gamma * sq_dists)
 
-def laplace_kernel(X, Y=None, gamma=0.1):
-    if Y is None: Y = X
-    diffs = X[:, np.newaxis, :] - Y[np.newaxis, :, :]
-    dists = np.sum(np.abs(diffs), axis=2)
-    return np.exp(-gamma * dists)
+def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
 
-def simulate_kpca_exact(n_values, d=10, alpha=0.05, trials=20):
-    scenarios = {
-        "Gaussian RBF Kernel": rbf_kernel,
-        "Laplace Kernel": laplace_kernel
+    np.random.seed(42)
+
+    
+    # Define the three input data generating distributions
+    distributions = {
+        "Gaussian $\\mathcal{N}(0, 1)$": lambda n, dim: np.random.normal(0, 1, size=(n, dim)),
+        "Uniform $[-1, 1]$": lambda n, dim: np.random.uniform(-1, 1, size=(n, dim)),
+        "Exponential $\\text{Exp}(1)$": lambda n, dim: np.random.exponential(1, size=(n, dim))
     }
     
     results = []
 
-    for kernel_name, kernel_fn in scenarios.items():
-        print(f"\n--- Processing {kernel_name} ---")
+    for dist_name, data_fn in distributions.items():
+        print(f"\n--- Processing Distribution: {dist_name} ---")
         
-        # OPTIMIZATION 1: Reduce N_pop to 3000. 
-        # The spectrum converges very fast, 10,000 is overkill and causes O(N^3) stalling.
+        # 1. Oracle Computation (Offline via Monte Carlo)
         N_pop = 2000
-        X_pop = np.random.normal(0, 1, size=(N_pop, d))
-        K_pop = kernel_fn(X_pop)
+        X_pop = data_fn(N_pop, d)
+        K_pop = rbf_kernel(X_pop)
         
+        # Eigenvalues of Sigma are 1/N * eigenvalues of K
         eigenvalues = np.linalg.eigvalsh(K_pop) / N_pop
         eigenvalues = np.clip(eigenvalues, 0, None) 
         
+        # True variance operator V = Sigma - Sigma^2
         gamma_j = eigenvalues * (1 - eigenvalues)
         norm_V = np.max(gamma_j)
         tr_V = np.sum(gamma_j)
@@ -48,26 +50,27 @@ def simulate_kpca_exact(n_values, d=10, alpha=0.05, trials=20):
             assert n % 4 == 0
             r_n_list = []
             
+            # Intrinsic Oracle Baseline
             log_term_oracle = np.log((2 / alpha) * true_intrinsic_dim)
             d_oracle = np.sqrt((2 * norm_V * log_term_oracle) / n) + ((c_bound / (3 * n)) * log_term_oracle)
 
             for _ in tqdm(range(trials), desc=f"n={n}"):
-                X = np.random.normal(0, 1, size=(n, d))
-                K = kernel_fn(X) 
+                X = data_fn(n, d)
+                K = rbf_kernel(X) 
                 
+                # --- EXACT DRAFT OEB VIA KERNEL TRICK ---
                 delta = alpha
                 d1, d2, d3 = ((n - 2) * delta) / n, delta / n, delta / n
                 
-                # 1. Compute Traces of X_i' (Level 1)
+                # Level 1 Traces
                 Z_tr = np.zeros(n // 2)
                 for i in range(n // 2):
-                    k_i = K[2*i, 2*i+1]
-                    Z_tr[i] = 1 - (k_i ** 2)
+                    Z_tr[i] = 1 - (K[2*i, 2*i+1] ** 2)
                 
                 tr_Sigma_n = (2 / n) * np.sum(Z_tr)
                 varsigma_Z = np.std(Z_tr, ddof=1)
                 
-                # 2. Compute Operator Norm of Sigma_n (Level 1)
+                # Level 1 Operator Norm
                 M = np.zeros((n, n))
                 for i in range(n // 2):
                     k_i = K[2*i, 2*i+1]
@@ -77,16 +80,14 @@ def simulate_kpca_exact(n_values, d=10, alpha=0.05, trials=20):
                     M[2*i+1, 2*i] = -k_i
                 M = M / n 
                 
-                # OPTIMIZATION 2: Use scipy.sparse.linalg.eigs to find ONLY the top eigenvalue
-                # This drops complexity from O(n^3) to O(n^2).
-                KM = K @ M
-                top_eval, _ = eigs(KM, k=1, which='LR', tol=1e-3)
+                # Fast Arnoldi iteration for top eigenvalue
+                top_eval, _ = eigs(K @ M, k=1, which='LR', tol=1e-3)
                 norm_Sigma_n = np.real(top_eval[0])
                 
                 tau_u = tr_Sigma_n + varsigma_Z * np.sqrt((2 * np.log(2 / d2)) / (n / 2)) + \
                         (7 * (2 * B_bound) * np.log(2 / d2)) / (3 * ((n / 2) - 1))
                 
-                # 3. Compute Traces of X_i'' (Level 2)
+                # Level 2 Traces
                 Z_prime_tr = np.zeros(n // 4)
                 for i in range(n // 4):
                     idx_A1, idx_A2 = 4*i, 4*i+1
@@ -124,7 +125,7 @@ def simulate_kpca_exact(n_values, d=10, alpha=0.05, trials=20):
 
             draft_ratios = np.array(r_n_list) / d_oracle
             results.append({
-                "Scenario": kernel_name,
+                "Distribution": dist_name,
                 "n": n,
                 "Draft Mean": np.mean(draft_ratios),
                 "Draft Lower": np.percentile(draft_ratios, 2.5),
@@ -133,19 +134,18 @@ def simulate_kpca_exact(n_values, d=10, alpha=0.05, trials=20):
 
     return pd.DataFrame(results)
 
-
-def plot_infinite_kpca(df_results, filename="kpca_infinite_plot.png"):
-    scenarios = df_results["Scenario"].unique()
-    fig, axes = plt.subplots(1, 2, figsize=(8, 4))
+def plot_infinite_kpca(df_results, filename="kpca_distributions_plot.png"):
+    distributions = df_results["Distribution"].unique()
+    fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
     
     def format_sci(n):
         exponent = int(np.log10(n))
         coeff = int(n / (10**exponent))
         return f"$10^{{{exponent}}}$" if coeff == 1 else f"${coeff} \\times 10^{{{exponent}}}$"
 
-    for i, scenario in enumerate(scenarios):
+    for i, dist in enumerate(distributions):
         ax = axes[i]
-        group = df_results[df_results["Scenario"] == scenario]
+        group = df_results[df_results["Distribution"] == dist]
         n_vals = group["n"].values
         
         ax.plot(n_vals, group["Draft Mean"], '^--', color="#2ca02c", linewidth=2.5, markersize=8, label="OEB (Ours)")
@@ -153,7 +153,7 @@ def plot_infinite_kpca(df_results, filename="kpca_infinite_plot.png"):
         ax.axhline(y=1.0, color="black", linestyle="--", linewidth=2, label="Intrinsic Oracle")
         
         ax.set_xscale("log")
-        ax.set_title(scenario, fontweight="bold")
+        ax.set_title(f"Input: {dist}", fontweight="bold")
         ax.set_xlabel("Sample Size (n)")
         
         if i == 0:
@@ -167,11 +167,9 @@ def plot_infinite_kpca(df_results, filename="kpca_infinite_plot.png"):
 
     plt.tight_layout()
     plt.savefig(filename, dpi=300, bbox_inches="tight")
-    print(f"Saved exact KPCA plot to {filename}")
+    print(f"Saved exact KPCA distributions plot to {filename}")
 
-
-# Run with exactly the same plot function as before
-n_values = [1000, 2000, 4000, 8000]
-df = simulate_kpca_exact(n_values, trials=20)
-plot_infinite_kpca(df) # <-- Add your plotting call back here
-
+# Run
+n_values = [100, 300, 1000, 3000, 10000, 30000]
+df = simulate_kpca_distributions(n_values, trials=20)
+plot_infinite_kpca(df)
