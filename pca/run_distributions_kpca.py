@@ -52,7 +52,7 @@ def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
             
             # Intrinsic Oracle Baseline
             log_term_oracle = np.log((2 / alpha) * true_intrinsic_dim)
-            d_oracle = np.sqrt((2 * norm_V * log_term_oracle) / n) + ((c_bound / (3 * n)) * log_term_oracle)
+            d_oracle = np.sqrt((2 * norm_V * log_term_oracle) / n) + ((2*c_bound / (3 * n)) * log_term_oracle)
 
             for _ in tqdm(range(trials), desc=f"n={n}"):
                 X = data_fn(n, d)
@@ -120,7 +120,7 @@ def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
                 
                 intrinsic_ratio = max(tau_u / sigma_u_sq, 1.0)
                 log_term_Rn = np.log((2 / d1) * intrinsic_ratio)
-                r_n = (np.sqrt(sigma_u_sq) * np.sqrt((2 / n) * log_term_Rn)) + ((c_bound / (3 * n)) * log_term_Rn)
+                r_n = (np.sqrt(sigma_u_sq) * np.sqrt((2 / n) * log_term_Rn)) + ((2*c_bound / (3 * n)) * log_term_Rn)
                 r_n_list.append(r_n)
 
             draft_ratios = np.array(r_n_list) / d_oracle
