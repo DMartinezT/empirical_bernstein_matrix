@@ -1,37 +1,54 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 from tqdm import tqdm
 from scipy.sparse.linalg import eigs
 
-def rbf_kernel(X, Y=None, gamma=0.1):
-    """Gaussian RBF Kernel"""
+# --- 1. KERNEL DEFINITIONS ---
+
+def pairwise_sq_dists(X, Y=None):
+    """Helper to compute pairwise squared Euclidean distances."""
     if Y is None: Y = X
     sq_dists = np.sum(X**2, axis=1).reshape(-1, 1) + np.sum(Y**2, axis=1) - 2 * np.dot(X, Y.T)
-    return np.exp(-gamma * sq_dists)
+    return np.clip(sq_dists, 0, None) # Clip to 0 to avoid floating point negatives
 
-def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
+def rbf_kernel(X, Y=None, gamma=0.1):
+    """Gaussian RBF Kernel"""
+    return np.exp(-gamma * pairwise_sq_dists(X, Y))
 
+def laplace_kernel(X, Y=None, gamma=0.1):
+    """Laplacian Kernel (using L2 distance)"""
+    dists = np.sqrt(pairwise_sq_dists(X, Y))
+    return np.exp(-gamma * dists)
+
+def imq_kernel(X, Y=None, c=1.0):
+    """Inverse Multi-Quadric (IMQ) Kernel"""
+    return 1.0 / np.sqrt(pairwise_sq_dists(X, Y) + c**2)
+
+
+# --- 2. SIMULATION FUNCTION ---
+
+def simulate_kpca_kernels(n_values, d=10, alpha=0.05, trials=20):
     np.random.seed(42)
-
     
-    # Define the three input data generating distributions
-    distributions = {
-        "Gaussian $\\mathcal{N}(0, 1)$": lambda n, dim: np.random.normal(0, 1, size=(n, dim)),
-        "Uniform $[-1, 1]$": lambda n, dim: np.random.uniform(-1, 1, size=(n, dim)),
-        "Exponential $\\text{Exp}(1)$": lambda n, dim: np.random.exponential(1, size=(n, dim))
+    # Define our dictionary of kernels to test
+    kernels = {
+        "RBF Kernel": rbf_kernel,
+        "Laplace Kernel": laplace_kernel,
+        "IMQ Kernel": imq_kernel
     }
+    
+    # Fixed data generating distribution: Standard Normal
+    data_fn = lambda n, dim: np.random.normal(0, 1, size=(n, dim))
     
     results = []
 
-    for dist_name, data_fn in distributions.items():
-        print(f"\n--- Processing Distribution: {dist_name} ---")
+    for kernel_name, kernel_fn in kernels.items():
+        print(f"\n--- Processing Kernel: {kernel_name} ---")
         
         # 1. Oracle Computation (Offline via Monte Carlo)
         N_pop = 2000
         X_pop = data_fn(N_pop, d)
-        K_pop = rbf_kernel(X_pop)
+        K_pop = kernel_fn(X_pop)
         
         # Eigenvalues of Sigma are 1/N * eigenvalues of K
         eigenvalues = np.linalg.eigvalsh(K_pop) / N_pop
@@ -56,7 +73,7 @@ def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
 
             for _ in tqdm(range(trials), desc=f"n={n}"):
                 X = data_fn(n, d)
-                K = rbf_kernel(X) 
+                K = kernel_fn(X) 
                 
                 # --- EXACT DRAFT OEB VIA KERNEL TRICK ---
                 delta = alpha
@@ -125,7 +142,7 @@ def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
 
             draft_ratios = np.array(r_n_list) / d_oracle
             results.append({
-                "Distribution": dist_name,
+                "Kernel": kernel_name,
                 "n": n,
                 "Draft Mean": np.mean(draft_ratios),
                 "Draft Lower": np.percentile(draft_ratios, 2.5),
@@ -134,42 +151,11 @@ def simulate_kpca_distributions(n_values, d=10, alpha=0.05, trials=20):
 
     return pd.DataFrame(results)
 
-def plot_infinite_kpca(df_results, filename="kpca_distributions_plot.png"):
-    distributions = df_results["Distribution"].unique()
-    fig, axes = plt.subplots(1, 3, figsize=(12, 3.5))
+if __name__ == "__main__":
+    n_values = [100, 300, 1000, 3000, 10000, 30000]
+    df_results = simulate_kpca_kernels(n_values, trials=20)
     
-    def format_sci(n):
-        exponent = int(np.log10(n))
-        coeff = int(n / (10**exponent))
-        return f"$10^{{{exponent}}}$" if coeff == 1 else f"${coeff} \\times 10^{{{exponent}}}$"
-
-    for i, dist in enumerate(distributions):
-        ax = axes[i]
-        group = df_results[df_results["Distribution"] == dist]
-        n_vals = group["n"].values
-        
-        ax.plot(n_vals, group["Draft Mean"], '^--', color="#2ca02c", linewidth=2.5, markersize=8, label="OEB (Ours)")
-        ax.fill_between(n_vals, group["Draft Lower"], group["Draft Upper"], color="#2ca02c", alpha=0.25)
-        ax.axhline(y=1.0, color="black", linestyle="--", linewidth=2, label="Intrinsic Oracle")
-        
-        ax.set_xscale("log")
-        ax.set_title(f"Input: {dist}", fontweight="bold")
-        ax.set_xlabel("Sample Size (n)")
-        
-        if i == 0:
-            ax.set_ylabel("Ratio to Intrinsic Oracle")
-            ax.legend(loc="upper right", framealpha=0.9)
-            
-        ax.set_xticks(n_vals)
-        ax.set_xticklabels([format_sci(n) for n in n_vals])
-        ax.minorticks_off()
-        ax.grid(True, which="major", linestyle=":", alpha=0.7)
-
-    plt.tight_layout()
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
-    print(f"Saved exact KPCA distributions plot to {filename}")
-
-# Run
-n_values = [100, 300, 1000, 3000, 10000, 30000]
-df = simulate_kpca_distributions(n_values, trials=20)
-plot_infinite_kpca(df)
+    # Save the data to a file
+    data_filename = "outputs/kpca_kernels_results.csv"
+    df_results.to_csv(data_filename, index=False)
+    print(f"\n[+] Simulation complete. Data saved to '{data_filename}'")
