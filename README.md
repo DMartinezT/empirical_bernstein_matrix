@@ -3,8 +3,8 @@
 This repository contains the Python scripts to reproduce the empirical simulations for the NeurIPS submission: **"Intrinsic-dimension empirical Bernstein inequalities for bounded self-adjoint operators."**
 
 The code is divided into two distinct experiments:
-1. `run_meb_simulations.py`: Evaluates the Operator Empirical Bernstein (OEB) bound against state-of-the-art ambient bounds under varying spectral geometries.
-2. `run_kpca_simulations.py`: Demonstrates the application of OEB to infinite-dimensional Reproducing Kernel Hilbert Spaces (RKHS) via Kernel PCA.
+1. `meb`: Evaluates the Operator Empirical Bernstein (OEB) bound against state-of-the-art ambient bounds under varying spectral geometries. `run_meb.py` generates the data, `read_meb.py` generates the plots.
+2. `run_kpca_simulations.py`: Demonstrates the application of OEB to infinite-dimensional Reproducing Kernel Hilbert Spaces (RKHS) via Kernel PCA. `run_distributions_kpca.py` generates the data, `read_distributions_kpca.py` generates the plots.
 
 ## Requirements
 
