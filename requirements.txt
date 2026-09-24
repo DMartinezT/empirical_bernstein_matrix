@@ -1,0 +1,7 @@
+# Numerical versions used by the recorded rank-one experiments.
+-r rank_one/requirements.txt
+
+# Original experiments and plotting scripts.
+matplotlib
+pandas
+tqdm

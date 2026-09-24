@@ -1,0 +1,66 @@
+{
+  "status": "complete",
+  "reconstruction_not_recovered_original_code": true,
+  "started_utc": "2026-09-19T21:02:29.076926+00:00",
+  "command": [
+    "run_experiments.py",
+    "--jobs",
+    "4"
+  ],
+  "options": {
+    "experiment": "both",
+    "output": "results",
+    "seed": 20260919,
+    "delta": 0.05,
+    "jobs": 4,
+    "solver": "iterative",
+    "trials": null,
+    "n": null,
+    "smoke": false,
+    "overwrite": false
+  },
+  "python": "3.12.14",
+  "numpy": "2.3.5",
+  "scipy": "1.16.3",
+  "platform": "macOS-15.7.9-x86_64-i386-64bit",
+  "random_generator": "PCG64/SeedSequence",
+  "threads_per_worker": 1,
+  "threadpools": [],
+  "source_sha256": {
+    "bounds.py": "4018a24590c853df3157c784db40f6ed2e20de506b0cf497b6d2c5378854af04",
+    "run_experiments.py": "5c8ee6d4f2ba4083b8187bf075a6ea4dd7112bb3874dabc85a531928a43e1139"
+  },
+  "conditions": [
+    {
+      "experiment": "noncommuting",
+      "ranks": [
+        3,
+        5,
+        10,
+        20
+      ],
+      "n": 20000,
+      "trials": 40
+    },
+    {
+      "experiment": "rkhs",
+      "ranks": [
+        32,
+        64,
+        128,
+        256
+      ],
+      "n": 10000,
+      "trials": 100
+    }
+  ],
+  "elapsed_seconds": 1195.502400161,
+  "finished_utc": "2026-09-19T21:22:24.691604+00:00",
+  "completed_condition_trials": 560,
+  "output_sha256": {
+    "summary.csv": "303acf80b6185a5c66151438d672a3906c7f36f22ad720ea7832a18d5982b40e",
+    "trials.csv": "4cc11ba349e1b810c9579a141bbc0824c406dd699fd42c3dd3ef287675b70ee7",
+    "embedding.npz": "51eac2433d2e65c4a2ae6f416a88cd68c019ab9963e90ff151da5c0fec1d55f1",
+    "comparison_to_rebuttal.csv": "11e20a77edd3c9a7d54edd8e0608741a6204e9b07cde2c84e60b0636020e4ab5"
+  }
+}
